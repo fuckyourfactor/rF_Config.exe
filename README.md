@@ -17,6 +17,14 @@ The visible settings are video adapter, resolution, shader level, anti-aliasing,
 - Lists actual reported display refresh rates rather than an invented `Default` item.
 - Uses game configuration keys `VideoDriver`, `VideoGUID`, `VideoMode`, `VideoRefresh`, `FSAA`, `ShaderLevel`, `LanguagesFile`, `CommentaryFile`, `VSync`, `WindowedMode`, `WidescreenUI` and `SubViews`.
 
+## Original icon and Windows file properties
+
+`src/rf-config.ico` is reconstructed without modifying the image data from the original executable's 32×32, 24-bit icon resource. `src/resources.rc` embeds the icon and the original English (US) version-information strings. Windows Explorer shows the original file description (`rFactor Config Utility`), company (`Image Space Incorporated`), file version (`1.8`), product version (`1.00`), and copyright. The source project's own release version is 1.0.7 and is distinct from the copied original file-properties metadata.
+
+The dialog explicitly assigns the embedded icon to its title bar and taskbar representation. No video settings, UI controls, or configuration logic were changed by this update.
+
+The original icon and original vendor metadata are reproduced for compatibility and identification; **the icon is not licensed under this project's MIT license**, and this independent implementation is not an official Image Space Incorporated build. Recompilation does not transfer any original digital signature.
+
 ## Build
 
 Requires Windows SDK, Visual Studio 2022 C++ desktop tools and CMake 3.20+.

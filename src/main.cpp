@@ -156,6 +156,14 @@ private:
             app = reinterpret_cast<ConfigWindow*>(lparam);
             SetWindowLongPtrW(window, DWLP_USER, reinterpret_cast<LONG_PTR>(app));
             app->window_ = window;
+            const HICON smallIcon = static_cast<HICON>(LoadImageW(
+                app->instance_, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON,
+                GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED));
+            const HICON largeIcon = static_cast<HICON>(LoadImageW(
+                app->instance_, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON,
+                GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_SHARED));
+            if (smallIcon) SendMessageW(window, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
+            if (largeIcon) SendMessageW(window, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(largeIcon));
             app->initialize();
             return TRUE;
         }

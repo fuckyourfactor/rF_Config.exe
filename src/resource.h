@@ -1,5 +1,6 @@
 #pragma once
 
+#define IDI_APP_ICON 148
 #define IDD_MAIN 149
 
 #define IDC_DRIVER 1012
