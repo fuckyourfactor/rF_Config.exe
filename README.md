@@ -50,7 +50,7 @@ The video test checks Direct3D initialization and DXT1 texture capability. It do
 - `src/main.cpp`: Win32 UI, GPU and graphics-mode enumeration, save actions, tests and tools.
 - `src/config.hpp` / `src/config.cpp`: reusable rFactor config parser and serializer.
 - `src/resources.rc`, `src/resource.h`, `src/app.manifest`: Windows dialog resources, control IDs, and visual-style manifest.
-- `tests/config_tests.cpp`: portable configuration read/write tests.
+- `tests/config_tests.cpp`: portable configuration read/write tests with separate, traceable existing/new cases.
 - `.github/workflows/build.yml`: GitHub Actions build and release pipeline.
 
 ## License

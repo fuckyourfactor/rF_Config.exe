@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(rf_config_open_source VERSION 1.0.1 LANGUAGES CXX)
+project(rf_config_open_source VERSION 1.0.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,4 +33,10 @@ endif()
 enable_testing()
 add_executable(config-tests tests/config_tests.cpp src/config.cpp src/config.hpp)
 target_include_directories(config-tests PRIVATE src)
-add_test(NAME config-tests COMMAND config-tests)
+add_test(NAME config-existing COMMAND config-tests existing)
+add_test(NAME config-new COMMAND config-tests new)
+
+if(MSVC)
+    target_compile_options(config-tests PRIVATE /W4 /EHsc /utf-8)
+    set_property(TARGET config-tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()

@@ -19,8 +19,27 @@ jobs:
         run: cmake -S . -B build -A Win32 -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --config Release --parallel
+      - name: Configure crash diagnostics
+        shell: pwsh
+        run: |
+          $dumpDir = Join-Path $env:RUNNER_TEMP 'rf-config-crashes'
+          New-Item -ItemType Directory -Force $dumpDir | Out-Null
+          $key = 'HKCU:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\config-tests.exe'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
       - name: Run tests
-        run: ctest --test-dir build -C Release --output-on-failure
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure --verbose
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload Windows crash dump (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: config-tests-windows-crash
+          path: ${{ runner.temp }}/rf-config-crashes/*.dmp
+          if-no-files-found: ignore
       - name: Package
         shell: pwsh
         run: |

@@ -3,9 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
-#include <iterator>
 #include <map>
-#include <stdexcept>
+#include <sstream>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -43,8 +42,10 @@ bool keyMatch(const std::string& line, const std::string& key) {
 bool ConfigFile::load(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary);
     if (!input) return false;
-    std::string bytes(std::istreambuf_iterator<char>{input}, {});
-    if (!input.eof() && input.fail()) return false;
+    std::ostringstream stream;
+    stream << input.rdbuf();
+    if (input.bad() || stream.bad()) return false;
+    const std::string bytes = stream.str();
 
     std::vector<std::string> result;
     newline_ = bytes.find("\r\n") != std::string::npos ? "\r\n" : "\n";
@@ -173,7 +174,8 @@ void ConfigFile::addDefaults() {
 }
 
 bool ConfigFile::save(const std::filesystem::path& path, std::string& error) const {
-    const auto temp = std::filesystem::path(path.wstring() + L".tmp");
+    auto temp = path;
+    temp += L".tmp";
     std::ofstream output(temp, std::ios::binary | std::ios::trunc);
     if (!output) { error = "Could not create the temporary config file."; return false; }
     for (size_t i = 0; i < lines_.size(); ++i) {
@@ -183,8 +185,12 @@ bool ConfigFile::save(const std::filesystem::path& path, std::string& error) con
     output.close();
     if (!output) { error = "Could not write the temporary config file."; return false; }
     std::error_code ec;
-    if (std::filesystem::exists(path)) {
-        std::filesystem::copy_file(path, std::filesystem::path(path.wstring() + L".bak"),
+    const bool existing = std::filesystem::exists(path, ec);
+    if (ec) { error = "Could not inspect Config.ini: " + ec.message(); return false; }
+    if (existing) {
+        auto backup = path;
+        backup += L".bak";
+        std::filesystem::copy_file(path, backup,
                                    std::filesystem::copy_options::overwrite_existing, ec);
         if (ec) { error = "Could not create a backup: " + ec.message(); return false; }
     }
