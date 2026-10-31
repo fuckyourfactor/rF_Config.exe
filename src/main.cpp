@@ -377,15 +377,26 @@ private:
         auto* adapter = selectedAdapter();
         auto* resolution = selectedResolution();
         if (adapter && resolution && direct3d_) {
-            const D3DFORMAT format = resolution->depth == 16 ? D3DFMT_R5G6B5 : D3DFMT_X8R8G8B8;
-            const BOOL windowed = IsDlgButtonChecked(window_, IDC_WINDOWED) == BST_CHECKED;
-            // gMotor 2 configuration flags are not the Direct3D sample counts.
-            struct SampleOption { int samples; int configFlag; };
-            for (const SampleOption option : {SampleOption{2, 1}, {3, 4}, {4, 2}, {5, 8}, {6, 16}, {16, 0x4000}}) {
-                DWORD qualityLevels = 0;
+            DWORD qualityLevels = 0;
+            for (D3DFORMAT format : {D3DFMT_R5G6B5, D3DFMT_X8R8G8B8, D3DFMT_A8R8G8B8}) {
+                qualityLevels = 0;
                 if (SUCCEEDED(direct3d_->CheckDeviceMultiSampleType(adapter->ordinal, D3DDEVTYPE_HAL,
-                        format, windowed, static_cast<D3DMULTISAMPLE_TYPE>(option.samples), &qualityLevels))) {
-                    aaOptions_.emplace_back(std::to_wstring(option.samples) + L"x MultiSample", option.configFlag);
+                        format, FALSE, D3DMULTISAMPLE_NONMASKABLE, &qualityLevels))) {
+                    break;
+                }
+            }
+            if (qualityLevels > 0) {
+                for (DWORD level = 1; level <= std::min<DWORD>(qualityLevels, 8); ++level)
+                    aaOptions_.emplace_back(L"Level " + std::to_wstring(level), static_cast<int>(31 + level));
+            } else {
+                const D3DFORMAT format = resolution->depth == 16 ? D3DFMT_R5G6B5 : D3DFMT_X8R8G8B8;
+                const BOOL windowed = IsDlgButtonChecked(window_, IDC_WINDOWED) == BST_CHECKED;
+                for (const int samples : {2, 3, 4, 5, 6, 16}) {
+                    DWORD sampleQuality = 0;
+                    if (SUCCEEDED(direct3d_->CheckDeviceMultiSampleType(adapter->ordinal, D3DDEVTYPE_HAL,
+                            format, windowed, static_cast<D3DMULTISAMPLE_TYPE>(samples), &sampleQuality))) {
+                        aaOptions_.emplace_back(std::to_wstring(samples) + L"x MultiSample", samples);
+                    }
                 }
             }
         }

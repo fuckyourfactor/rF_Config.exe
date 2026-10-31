@@ -13,7 +13,7 @@ The visible settings are video adapter, resolution, shader level, anti-aliasing,
 - Reads and writes `Config.ini` alongside the executable.
 - Preserves unrelated sections and settings without creating an additional `.bak` file.
 - Enumerates graphics adapters and valid display modes through Direct3D 9.
-- Uses the gMotor 2 multi-sampling flag values found in the original executable instead of incorrectly writing the Direct3D sample count.
+- Detects Direct3D 9 nonmaskable anti-aliasing quality levels and shows `None` plus `Level 1` through the supported level (up to `Level 8`), matching the original application. Uses the original `FSAA=32` to `FSAA=39` configuration indices; multi-sampling choices are a fallback when quality levels are unavailable.
 - Lists actual reported display refresh rates rather than an invented `Default` item.
 - Uses game configuration keys `VideoDriver`, `VideoGUID`, `VideoMode`, `VideoRefresh`, `FSAA`, `ShaderLevel`, `LanguagesFile`, `CommentaryFile`, `VSync`, `WindowedMode`, `WidescreenUI` and `SubViews`.
 
