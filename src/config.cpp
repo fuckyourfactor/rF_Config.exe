@@ -184,15 +184,6 @@ bool ConfigFile::save(const std::filesystem::path& path, std::string& error) con
     output.close();
     if (!output) { error = "Could not write the temporary config file."; return false; }
     std::error_code ec;
-    const bool existing = std::filesystem::exists(path, ec);
-    if (ec) { error = "Could not inspect Config.ini: " + ec.message(); return false; }
-    if (existing) {
-        auto backup = path;
-        backup += L".bak";
-        std::filesystem::copy_file(path, backup,
-                                   std::filesystem::copy_options::overwrite_existing, ec);
-        if (ec) { error = "Could not create a backup: " + ec.message(); return false; }
-    }
 #ifdef _WIN32
     if (!MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         error = "Could not replace Config.ini (Windows error " + std::to_string(GetLastError()) + ").";

@@ -1,54 +1,42 @@
 #include <windows.h>
 #include "resource.h"
 
-IDD_MAIN DIALOGEX 0, 0, 325, 255
-STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME
-CAPTION "::: rFactor ::: Video Setup v1.8"
+IDD_MAIN DIALOGEX 0, 0, 311, 157
+STYLE DS_SETFONT | DS_CENTER | DS_3DLOOK | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME
+CAPTION "::: gMotor 2 ::: Video Setup v1.8"
 FONT 9, "Segoe UI", 400, 0, 1
 BEGIN
-    GROUPBOX        "Video configuration", -1, 4, 3, 317, 124
-    LTEXT           "Driver:", -1, 12, 16, 140, 8
-    COMBOBOX        IDC_DRIVER, 12, 26, 145, 125, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Resolution:", -1, 169, 16, 140, 8
-    COMBOBOX        IDC_RESOLUTION, 169, 26, 143, 150, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Shader Level:", -1, 12, 45, 140, 8
-    COMBOBOX        IDC_SHADER, 12, 55, 145, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Anti Aliasing:", -1, 169, 45, 140, 8
-    COMBOBOX        IDC_FSAA, 169, 55, 143, 160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Language:", -1, 12, 74, 140, 8
-    COMBOBOX        IDC_LANGUAGE, 12, 84, 145, 128, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Refresh Rate:", -1, 169, 74, 140, 8
-    COMBOBOX        IDC_REFRESH, 169, 84, 143, 160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    CONTROL         "Vertical Sync", IDC_VSYNC, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 12, 104, 74, 10
-    CONTROL         "Widescreen UI", IDC_WIDESCREEN, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 90, 104, 76, 10
-    CONTROL         "Windowed", IDC_WINDOWED, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 171, 104, 64, 10
-    CONTROL         "MultiView", IDC_MULTIVIEW, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 243, 104, 62, 10
-    GROUPBOX        "System information", -1, 4, 131, 317, 68
-    LTEXT           "", IDC_INFO_CPU, 12, 144, 295, 9
-    LTEXT           "", IDC_INFO_OS, 12, 155, 295, 9
-    LTEXT           "", IDC_INFO_GPU, 12, 166, 295, 9
-    LTEXT           "", IDC_INFO_DRIVER, 12, 177, 295, 9
-    LTEXT           "", IDC_INFO_DX, 12, 188, 295, 9
-    LTEXT           "", IDC_INFO_FILE, 12, 202, 300, 9
-    LTEXT           "rFactor Tech Support", IDC_LINK_SUPPORT, 10, 220, 82, 10, SS_NOTIFY
-    LTEXT           "Microsoft DirectX Home", IDC_LINK_DIRECTX, 94, 220, 100, 10, SS_NOTIFY
-    LTEXT           "ATI Driver Home", IDC_LINK_AMD, 200, 220, 58, 10, SS_NOTIFY
-    LTEXT           "nVidia Driver Home", IDC_LINK_NVIDIA, 259, 220, 62, 10, SS_NOTIFY
-    PUSHBUTTON      "Test", IDC_TEST, 171, 239, 34, 13
-    PUSHBUTTON      "Send", IDC_SEND, 210, 239, 34, 13
-    PUSHBUTTON      "Cancel", IDCANCEL, 249, 239, 34, 13
-    DEFPUSHBUTTON   "OK", IDOK, 288, 239, 30, 13
-END
-
-IDD_DEBUG DIALOGEX 0, 0, 190, 146
-STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME
-CAPTION "rFactor video test - debug"
-FONT 9, "Segoe UI", 400, 0, 1
-BEGIN
-    LTEXT           "Select a simulated configuration error:", -1, 8, 9, 174, 14
-    LISTBOX         IDC_DEBUG_ERRORS, 8, 28, 174, 92, LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP
-    DEFPUSHBUTTON   "Go", IDOK, 102, 127, 38, 14
-    PUSHBUTTON      "Cancel", IDCANCEL, 144, 127, 38, 14
+    CONTROL         "", 1178, "Button", BS_GROUPBOX | WS_VISIBLE, 4, 0, 303, 153
+    LTEXT           "Video:", 1184, 13, 7, 154, 8
+    COMBOBOX        IDC_DRIVER, 12, 16, 157, 48, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Resolution:", 1208, 176, 7, 129, 8
+    COMBOBOX        IDC_RESOLUTION, 175, 16, 124, 112, CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Shader Level:", 1210, 13, 32, 141, 8
+    COMBOBOX        IDC_SHADER, 12, 41, 124, 55, CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Anti Aliasing:", 1206, 176, 32, 73, 8
+    COMBOBOX        IDC_FSAA, 175, 41, 69, 199, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Refresh Rate:", 1205, 251, 32, 54, 8
+    COMBOBOX        IDC_REFRESH, 249, 41, 50, 81, CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Language:", 1214, 13, 57, 140, 8
+    COMBOBOX        IDC_LANGUAGE, 12, 66, 124, 55, CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "VSync On", IDC_VSYNC, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 175, 59, 72, 10
+    CONTROL         "Windowed", IDC_WINDOWED, "Button", BS_AUTOCHECKBOX, 250, 59, 55, 10
+    CONTROL         "Widescreen UI", IDC_WIDESCREEN, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 175, 71, 72, 10
+    CONTROL         "MultiView", IDC_MULTIVIEW, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 250, 72, 55, 10
+    CONTROL         "", -1, "Static", SS_ETCHEDHORZ | WS_VISIBLE, 12, 84, 287, 1
+    LTEXT           "", IDC_INFO_CPU, 12, 93, 285, 8
+    LTEXT           "", IDC_INFO_OS, 12, 103, 285, 8
+    LTEXT           "", IDC_INFO_GPU, 12, 113, 285, 8
+    LTEXT           "", IDC_INFO_DRIVER, 12, 123, 149, 8
+    LTEXT           "", IDC_INFO_DX, 12, 141, 91, 8
+    LTEXT           "", IDC_INFO_FILE, 112, 141, 98, 8
+    LTEXT           "rFactor Tech Support", IDC_LINK_SUPPORT, 219, 90, 68, 8
+    LTEXT           "Microsoft DirectX Home", IDC_LINK_DIRECTX, 216, 100, 76, 8
+    LTEXT           "ATI Driver Home", IDC_LINK_AMD, 230, 111, 54, 8
+    LTEXT           "nVidia Driver Home", IDC_LINK_NVIDIA, 226, 121, 62, 8
+    PUSHBUTTON      "Send", IDC_SEND, 168, 136, 42, 14, WS_DISABLED
+    PUSHBUTTON      "Cancel", IDCANCEL, 215, 136, 42, 14
+    DEFPUSHBUTTON   "OK", IDOK, 261, 136, 42, 14
 END
 
 1 24 "app.manifest"

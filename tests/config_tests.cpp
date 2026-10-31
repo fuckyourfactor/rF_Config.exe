@@ -107,11 +107,11 @@ void testExistingConfiguration(const fs::path& dir) {
     require(reread.get("COMPONENTS", "Other") == "keep", "Unrelated keys were not preserved");
     require(reread.get("COMPONENTS", "LanguagesFile") == "FRANCAIS.DIC", "New key was not saved");
 
-    checkpoint("existing: checking CRLF and backup");
+    checkpoint("existing: checking CRLF and unrelated files");
     const std::string saved = readFile(path);
     require(saved.find("// Existing header\r\n") == 0, "Header or CRLF line endings were lost");
     require(saved.find("[MOD]\r\nExtra=yes\r\n") != std::string::npos, "Custom section was modified");
-    require(readFile(dir / "Config.ini.bak") == original, "Backup must match the original file");
+    require(!fs::exists(dir / "Config.ini.bak"), "Saving must not create additional files");
     checkpoint("existing: PASS");
 }
 

@@ -1,14 +1,11 @@
 #include <windows.h>
 #include <commctrl.h>
-#include <shellapi.h>
 #include <d3d9.h>
 
 #include "config.hpp"
 #include "resource.h"
 
 #include <algorithm>
-#include <array>
-#include <cstdio>
 #include <cwctype>
 #include <filesystem>
 #include <map>
@@ -88,31 +85,6 @@ std::wstring exeDirectory() {
     return fs::path(std::wstring(path.data(), length)).parent_path().wstring();
 }
 
-std::wstring selectedPath(int argc, wchar_t** argv, const fs::path& root) {
-    for (int i = 1; i < argc; ++i) {
-        std::wstring arg = argv[i];
-        std::wstring folded = lower(arg);
-        if ((folded == L"--config" || folded == L"-config") && i + 1 < argc) {
-            fs::path path = argv[i + 1];
-            return (path.is_absolute() ? path : root / path).wstring();
-        }
-        if (folded.rfind(L"config=", 0) == 0) {
-            fs::path path = arg.substr(7);
-            return (path.is_absolute() ? path : root / path).wstring();
-        }
-    }
-    return (root / L"Config.ini").wstring();
-}
-
-std::wstring comboString(HWND window, int id, int index) {
-    auto length = static_cast<int>(SendDlgItemMessageW(window, id, CB_GETLBTEXTLEN, index, 0));
-    if (length < 0) return L"";
-    std::wstring text(static_cast<size_t>(length) + 1, L'\0');
-    SendDlgItemMessageW(window, id, CB_GETLBTEXT, index, reinterpret_cast<LPARAM>(text.data()));
-    text.resize(static_cast<size_t>(length));
-    return text;
-}
-
 int comboSelection(HWND window, int id) {
     return static_cast<int>(SendDlgItemMessageW(window, id, CB_GETCURSEL, 0, 0));
 }
@@ -141,8 +113,8 @@ std::pair<UINT, UINT> sizeSetting(const ConfigFile& config, const char* key, UIN
 
 class ConfigWindow {
 public:
-    ConfigWindow(HINSTANCE instance, std::wstring configPath, fs::path root, bool debug)
-        : instance_(instance), configPath_(std::move(configPath)), root_(std::move(root)), debug_(debug) {}
+    ConfigWindow(HINSTANCE instance, std::wstring configPath, fs::path root)
+        : instance_(instance), configPath_(std::move(configPath)), root_(std::move(root)) {}
 
     int run() {
         configExisted_ = config_.load(configPath_);
@@ -161,7 +133,6 @@ private:
     ConfigFile config_;
     std::wstring configPath_;
     fs::path root_;
-    bool debug_ = false;
     bool configExisted_ = false;
     IDirect3D9* direct3d_ = nullptr;
     std::vector<Adapter> adapters_;
@@ -191,14 +162,6 @@ private:
         if (!app) return FALSE;
         if (message == WM_COMMAND) return app->command(LOWORD(wparam), HIWORD(wparam));
         if (message == WM_CLOSE) { EndDialog(window, IDCANCEL); return TRUE; }
-        if (message == WM_CTLCOLORSTATIC) {
-            auto id = GetDlgCtrlID(reinterpret_cast<HWND>(lparam));
-            if (id == IDC_LINK_SUPPORT || id == IDC_LINK_DIRECTX || id == IDC_LINK_AMD || id == IDC_LINK_NVIDIA) {
-                SetTextColor(reinterpret_cast<HDC>(wparam), RGB(0, 85, 180));
-                SetBkMode(reinterpret_cast<HDC>(wparam), TRANSPARENT);
-                return reinterpret_cast<INT_PTR>(GetSysColorBrush(COLOR_BTNFACE));
-            }
-        }
         return FALSE;
     }
 
@@ -291,7 +254,10 @@ private:
     }
 
     void initialize() {
-        SendMessageW(window_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(LoadIconW(nullptr, IDI_APPLICATION)));
+        SetWindowTextW(window_, L"::: gMotor 2 ::: Video Setup v1.8");
+        for (int id : {IDC_SEND, IDC_LINK_SUPPORT, IDC_LINK_DIRECTX,
+                       IDC_LINK_AMD, IDC_LINK_NVIDIA})
+            ShowWindow(GetDlgItem(window_, id), SW_HIDE);
         addCombo(window_, IDC_SHADER, L"Auto");
         addCombo(window_, IDC_SHADER, L"Quality (DX9)");
         addCombo(window_, IDC_SHADER, L"Balanced (DX8)");
@@ -318,8 +284,6 @@ private:
             EnableWindow(GetDlgItem(window_, IDC_FSAA), FALSE);
             addCombo(window_, IDC_RESOLUTION, L"Unavailable");
             chooseCombo(window_, IDC_RESOLUTION, 0);
-            addCombo(window_, IDC_REFRESH, L"Default");
-            chooseCombo(window_, IDC_REFRESH, 0);
             addCombo(window_, IDC_FSAA, L"None");
             chooseCombo(window_, IDC_FSAA, 0);
         } else {
@@ -335,8 +299,8 @@ private:
             chooseCombo(window_, IDC_DRIVER, selection);
             fillResolutions(true);
         }
+        updateOptionalControls();
         setSystemInfo();
-        if (debug_) showDebug();
     }
 
     void fillResolutions(bool useSaved) {
@@ -348,6 +312,7 @@ private:
         D3DDISPLAYMODE desktop{};
         direct3d_->GetAdapterDisplayMode(adapter->ordinal, &desktop);
         int desktopSelection = -1;
+        int originalDefault = -1;
         for (size_t i = 0; i < adapter->resolutions.size(); ++i) {
             auto& r = adapter->resolutions[i];
             wchar_t label[128];
@@ -356,29 +321,53 @@ private:
             if (useSaved && r.gameIndices.count(savedMode)) selection = static_cast<int>(i);
             if (r.width == desktop.Width && r.height == desktop.Height && r.depth == screenDepth(desktop.Format))
                 desktopSelection = static_cast<int>(i);
+            if (r.width == 800 && r.height == 600 && r.depth == 32)
+                originalDefault = static_cast<int>(i);
         }
-        if (selection < 0) selection = desktopSelection >= 0 ? desktopSelection : 0;
+        if (selection < 0) selection = originalDefault >= 0 ? originalDefault : (desktopSelection >= 0 ? desktopSelection : 0);
         if (!adapter->resolutions.empty()) chooseCombo(window_, IDC_RESOLUTION, selection);
         fillRefresh(useSaved);
         fillAA(useSaved);
+        updateOptionalControls();
     }
 
     void fillRefresh(bool useSaved) {
         SendDlgItemMessageW(window_, IDC_REFRESH, CB_RESETCONTENT, 0, 0);
         refreshOptions_.clear();
-        refreshOptions_.push_back(0);
-        addCombo(window_, IDC_REFRESH, L"Default");
         auto* resolution = selectedResolution();
         if (resolution) {
-            for (auto rate : resolution->refreshRates) {
+            for (const UINT rate : resolution->refreshRates) {
                 if (rate == 0) continue;
                 refreshOptions_.push_back(rate);
                 addCombo(window_, IDC_REFRESH, std::to_wstring(rate) + L" Hz");
             }
         }
-        int current = useSaved ? config_.getInt(kSection, "VideoRefresh", 0) : 0;
-        if (current < 0 || current >= static_cast<int>(refreshOptions_.size())) current = 0;
-        chooseCombo(window_, IDC_REFRESH, current);
+        if (refreshOptions_.empty()) {
+            D3DDISPLAYMODE desktop{};
+            auto* adapter = selectedAdapter();
+            if (adapter && SUCCEEDED(direct3d_->GetAdapterDisplayMode(adapter->ordinal, &desktop))
+                    && desktop.RefreshRate) {
+                refreshOptions_.push_back(desktop.RefreshRate);
+                addCombo(window_, IDC_REFRESH, std::to_wstring(desktop.RefreshRate) + L" Hz");
+            }
+        }
+        const int saved = useSaved ? config_.getInt(kSection, "VideoRefresh", 0) : 0;
+        if (!refreshOptions_.empty()) {
+            const int selection = saved >= 0 && saved < static_cast<int>(refreshOptions_.size()) ? saved : 0;
+            chooseCombo(window_, IDC_REFRESH, selection);
+        }
+    }
+
+    void updateOptionalControls() {
+        auto* mode = selectedResolution();
+        const bool widescreen = mode && mode->width * 3 > mode->height * 4;
+        EnableWindow(GetDlgItem(window_, IDC_WIDESCREEN), widescreen);
+        if (!widescreen) CheckDlgButton(window_, IDC_WIDESCREEN, BST_UNCHECKED);
+
+        const bool multiview = GetSystemMetrics(SM_CMONITORS) >= 3 &&
+            IsDlgButtonChecked(window_, IDC_WINDOWED) != BST_CHECKED;
+        EnableWindow(GetDlgItem(window_, IDC_MULTIVIEW), multiview);
+        if (!multiview) CheckDlgButton(window_, IDC_MULTIVIEW, BST_UNCHECKED);
     }
 
     void fillAA(bool useSaved) {
@@ -388,32 +377,30 @@ private:
         auto* adapter = selectedAdapter();
         auto* resolution = selectedResolution();
         if (adapter && resolution && direct3d_) {
-            auto format = resolution->depth == 16 ? D3DFMT_R5G6B5 : D3DFMT_X8R8G8B8;
-            BOOL windowed = IsDlgButtonChecked(window_, IDC_WINDOWED) == BST_CHECKED;
-            for (int n = 2; n <= 16; ++n) {
+            const D3DFORMAT format = resolution->depth == 16 ? D3DFMT_R5G6B5 : D3DFMT_X8R8G8B8;
+            const BOOL windowed = IsDlgButtonChecked(window_, IDC_WINDOWED) == BST_CHECKED;
+            // gMotor 2 configuration flags are not the Direct3D sample counts.
+            struct SampleOption { int samples; int configFlag; };
+            for (const SampleOption option : {SampleOption{2, 1}, {3, 4}, {4, 2}, {5, 8}, {6, 16}, {16, 0x4000}}) {
                 DWORD qualityLevels = 0;
-                HRESULT hr = direct3d_->CheckDeviceMultiSampleType(adapter->ordinal, D3DDEVTYPE_HAL,
-                                 format, windowed, static_cast<D3DMULTISAMPLE_TYPE>(n), &qualityLevels);
-                if (SUCCEEDED(hr)) {
-                    aaOptions_.emplace_back(std::to_wstring(n) + L"x MultiSample", n);
+                if (SUCCEEDED(direct3d_->CheckDeviceMultiSampleType(adapter->ordinal, D3DDEVTYPE_HAL,
+                        format, windowed, static_cast<D3DMULTISAMPLE_TYPE>(option.samples), &qualityLevels))) {
+                    aaOptions_.emplace_back(std::to_wstring(option.samples) + L"x MultiSample", option.configFlag);
                 }
             }
-            for (int level = 1; level <= 8; ++level) {
-                aaOptions_.emplace_back(L"Level " + std::to_wstring(level), 31 + level);
-            }
-        }
-        int saved = config_.getInt(kSection, "FSAA", 0);
-        int selection = 0;
-        bool found = false;
-        for (size_t i = 0; i < aaOptions_.size(); ++i) {
-            if (aaOptions_[i].second == saved) { selection = static_cast<int>(i); found = true; break; }
-        }
-        if (useSaved && !found && saved != 0) {
-            aaOptions_.emplace_back(L"Existing value (" + std::to_wstring(saved) + L")", saved);
-            selection = static_cast<int>(aaOptions_.size()) - 1;
         }
         for (const auto& item : aaOptions_) addCombo(window_, IDC_FSAA, item.first);
-        chooseCombo(window_, IDC_FSAA, useSaved ? selection : 0);
+        int selection = 0;
+        if (useSaved) {
+            const int saved = config_.getInt(kSection, "FSAA", 0);
+            for (size_t i = 0; i < aaOptions_.size(); ++i) {
+                if (aaOptions_[i].second == saved) {
+                    selection = static_cast<int>(i);
+                    break;
+                }
+            }
+        }
+        chooseCombo(window_, IDC_FSAA, selection);
     }
 
     void populateHardwareDefaults() {
@@ -439,134 +426,68 @@ private:
     }
 
     void setSystemInfo() {
-        MEMORYSTATUSEX memory{};
+        MEMORYSTATUS memory{};
         memory.dwLength = sizeof(memory);
-        GlobalMemoryStatusEx(&memory);
-        SYSTEM_INFO system{};
-        GetSystemInfo(&system);
-        std::wstring cpu = L"CPU: " + std::to_wstring(system.dwNumberOfProcessors) + L" logical processors";
+        GlobalMemoryStatus(&memory);
         wchar_t brand[256]{};
         DWORD bytes = sizeof(brand);
+        std::wstring cpu;
         if (RegGetValueW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-                         L"ProcessorNameString", RRF_RT_REG_SZ, nullptr, brand, &bytes) == ERROR_SUCCESS) {
-            cpu = std::wstring(L"CPU: ") + brand;
+                         L"ProcessorNameString", RRF_RT_REG_SZ, nullptr, brand, &bytes) == ERROR_SUCCESS)
+            cpu = brand;
+        else
+            cpu = L"Processor";
+        DWORD mhz = 0;
+        bytes = sizeof(mhz);
+        if (RegGetValueW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                         L"~MHz", RRF_RT_REG_DWORD, nullptr, &mhz, &bytes) == ERROR_SUCCESS && mhz != 0) {
+            wchar_t speed[40]{};
+            swprintf_s(speed, L" @%.2f GHz", static_cast<double>(mhz) / 1000.0);
+            cpu += speed;
         }
-        cpu += L" | RAM: " + std::to_wstring(memory.ullTotalPhys / (1024ULL * 1024ULL)) + L" MB";
+        cpu += L" " + std::to_wstring(memory.dwTotalPhys / (1024U * 1024U)) + L" MB";
         SetDlgItemTextW(window_, IDC_INFO_CPU, cpu.c_str());
+
         OSVERSIONINFOW version{};
         version.dwOSVersionInfoSize = sizeof(version);
 #pragma warning(push)
 #pragma warning(disable:4996)
         GetVersionExW(&version);
 #pragma warning(pop)
-        auto os = L"Windows " + std::to_wstring(version.dwMajorVersion) + L"." +
-                  std::to_wstring(version.dwMinorVersion) + L" (build " + std::to_wstring(version.dwBuildNumber) + L")";
-        SetDlgItemTextW(window_, IDC_INFO_OS, os.c_str());
-        auto* adapter = selectedAdapter();
-        if (!adapter) {
-            SetDlgItemTextW(window_, IDC_INFO_GPU, L"GPU: No Direct3D 9 adapter available");
-            SetDlgItemTextW(window_, IDC_INFO_DRIVER, L"Video Driver: unavailable");
+        SetDlgItemTextW(window_, IDC_INFO_OS,
+            (L"Windows Build " + std::to_wstring(version.dwBuildNumber)).c_str());
+
+        const Adapter* adapter = selectedAdapter();
+        if (adapter) {
+            UINT videoMemoryMb = 0;
+            D3DPRESENT_PARAMETERS present{};
+            present.Windowed = TRUE;
+            present.SwapEffect = D3DSWAPEFFECT_DISCARD;
+            present.hDeviceWindow = window_;
+            IDirect3DDevice9* device = nullptr;
+            if (SUCCEEDED(direct3d_->CreateDevice(adapter->ordinal, D3DDEVTYPE_HAL, window_,
+                    D3DCREATE_SOFTWARE_VERTEXPROCESSING, &present, &device)) && device) {
+                videoMemoryMb = device->GetAvailableTextureMem() / (1024U * 1024U);
+                device->Release();
+            }
+            SetDlgItemTextW(window_, IDC_INFO_GPU,
+                (adapter->description + L" " + std::to_wstring(videoMemoryMb) + L" MB").c_str());
+            const auto& v = adapter->identifier.DriverVersion;
+            wchar_t driverVersion[100]{};
+            swprintf_s(driverVersion, L"Video Driver v%u.%u.%u.%04u",
+                static_cast<unsigned>(HIWORD(v.HighPart)),
+                static_cast<unsigned>(LOWORD(v.HighPart)),
+                static_cast<unsigned>(HIWORD(v.LowPart)),
+                static_cast<unsigned>(LOWORD(v.LowPart)));
+            SetDlgItemTextW(window_, IDC_INFO_DRIVER, driverVersion);
         } else {
-            SetDlgItemTextW(window_, IDC_INFO_GPU, (L"GPU: " + adapter->description).c_str());
-            auto versionInfo = adapter->identifier.DriverVersion;
-            std::wstring driver = L"Video Driver: " + widen(adapter->identifier.Driver) + L" v" +
-                std::to_wstring(HIWORD(versionInfo.HighPart)) + L"." +
-                std::to_wstring(LOWORD(versionInfo.HighPart)) + L"." +
-                std::to_wstring(HIWORD(versionInfo.LowPart)) + L"." +
-                std::to_wstring(LOWORD(versionInfo.LowPart));
-            SetDlgItemTextW(window_, IDC_INFO_DRIVER, driver.c_str());
+            SetDlgItemTextW(window_, IDC_INFO_GPU, L"No Direct3D 9 adapter found");
+            SetDlgItemTextW(window_, IDC_INFO_DRIVER, L"");
         }
         SetDlgItemTextW(window_, IDC_INFO_DX,
-                        direct3d_ ? L"Direct3D: version 9 available" : L"Direct3D 9 is unavailable");
-        SetDlgItemTextW(window_, IDC_INFO_FILE, (L"File: " + configPath_).c_str());
-    }
-
-    void videoTest() {
-        std::wstring message;
-        if (!direct3d_) {
-            message = L"Direct3D 9 is not installed or could not be initialized.";
-        } else if (!selectedAdapter()) {
-            message = L"No Direct3D 9 video adapter is available.";
-        } else {
-            auto* adapter = selectedAdapter();
-            D3DCAPS9 caps{};
-            HRESULT hr = direct3d_->GetDeviceCaps(adapter->ordinal, D3DDEVTYPE_HAL, &caps);
-            if (FAILED(hr)) {
-                message = L"The selected adapter does not expose Direct3D 9 hardware capabilities.";
-            } else {
-                HRESULT dxt = direct3d_->CheckDeviceFormat(adapter->ordinal, D3DDEVTYPE_HAL,
-                                 D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, D3DFMT_DXT1);
-                if (FAILED(dxt)) message = L"The adapter does not report support for DXT1 compressed textures.";
-                else {
-                    D3DPRESENT_PARAMETERS present{};
-                    present.Windowed = TRUE;
-                    present.SwapEffect = D3DSWAPEFFECT_DISCARD;
-                    present.hDeviceWindow = window_;
-                    IDirect3DDevice9* device = nullptr;
-                    hr = direct3d_->CreateDevice(adapter->ordinal, D3DDEVTYPE_HAL, window_,
-                               D3DCREATE_SOFTWARE_VERTEXPROCESSING, &present, &device);
-                    if (SUCCEEDED(hr) && device) {
-                        device->Release();
-                        message = L"Direct3D 9 initialized successfully. DXT texture support is present.\n\n"
-                                  L"This test does not guarantee that every rFactor mod will run.";
-                    } else {
-                        wchar_t error[80];
-                        swprintf_s(error, L"Could not create a Direct3D device (HRESULT 0x%08lX).", hr);
-                        message = error;
-                    }
-                }
-            }
-        }
-        MessageBoxW(window_, message.c_str(), L"rFactor Video Test", MB_OK | MB_ICONINFORMATION);
-    }
-
-    void sendStats() {
-        const fs::path options[] = {root_ / L"statsend.exe", root_ / L"Support" / L"statsend.exe"};
-        for (const auto& file : options) {
-            std::error_code ec;
-            if (!fs::is_regular_file(file, ec)) continue;
-            auto executable = file.wstring();
-            HINSTANCE result = ShellExecuteW(window_, L"open", executable.c_str(), L"-sendstats",
-                                            root_.c_str(), SW_SHOWNORMAL);
-            if (reinterpret_cast<INT_PTR>(result) > 32) return;
-            MessageBoxW(window_, L"Could not start statsend.exe.", L"Error", MB_OK | MB_ICONERROR);
-            return;
-        }
-        MessageBoxW(window_, L"statsend.exe was not found in the rFactor or Support directory.",
-                    L"Error", MB_OK | MB_ICONERROR);
-    }
-
-    static INT_PTR CALLBACK debugDialogProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM) {
-        if (msg == WM_INITDIALOG) {
-            static const wchar_t* errors[] = {
-                L"Wrong DirectX", L"gMotor Wont Start", L"No DirectX Adapter",
-                L"Unsupported OS", L"Not Enough CPU", L"Not Enough Sys RAM",
-                L"Not Enough Vid Ram", L"Not Enough Swap", L"No DXT Compress",
-                L"No Sound Card", L"All Good"
-            };
-            for (const wchar_t* error : errors)
-                SendDlgItemMessageW(hwnd, IDC_DEBUG_ERRORS, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(error));
-            SendDlgItemMessageW(hwnd, IDC_DEBUG_ERRORS, LB_SETCURSEL, 10, 0);
-            return TRUE;
-        }
-        if (msg == WM_COMMAND) {
-            if (LOWORD(wparam) == IDOK) {
-                int selected = static_cast<int>(SendDlgItemMessageW(hwnd, IDC_DEBUG_ERRORS, LB_GETCURSEL, 0, 0));
-                if (selected >= 0) {
-                    wchar_t choice[128]{};
-                    SendDlgItemMessageW(hwnd, IDC_DEBUG_ERRORS, LB_GETTEXT, selected, reinterpret_cast<LPARAM>(choice));
-                    MessageBoxW(hwnd, choice, L"Simulated video test outcome", MB_OK | MB_ICONINFORMATION);
-                }
-                EndDialog(hwnd, IDOK);
-                return TRUE;
-            }
-            if (LOWORD(wparam) == IDCANCEL) { EndDialog(hwnd, IDCANCEL); return TRUE; }
-        }
-        return FALSE;
-    }
-
-    void showDebug() {
-        DialogBoxParamW(instance_, MAKEINTRESOURCEW(IDD_DEBUG), window_, debugDialogProc, 0);
+            direct3d_ ? L"DirectX 9.0c (4.09.00.0904)" : L"DirectX unavailable");
+        SetDlgItemTextW(window_, IDC_INFO_FILE,
+            (L"File: " + fs::path(configPath_).filename().wstring()).c_str());
     }
 
     bool saveSettings() {
@@ -605,9 +526,9 @@ private:
             config_.setInt(kSection, "VSync", IsDlgButtonChecked(window_, IDC_VSYNC) == BST_CHECKED ? 1 : 0);
         if (!configExisted_ || windowedChanged_)
             config_.setInt(kSection, "WindowedMode", IsDlgButtonChecked(window_, IDC_WINDOWED) == BST_CHECKED ? 1 : 0);
-        if (!configExisted_ || multiviewChanged_)
+        if (!configExisted_ || multiviewChanged_ || windowedChanged_)
             config_.setInt(kSection, "SubViews", IsDlgButtonChecked(window_, IDC_MULTIVIEW) == BST_CHECKED ? 1 : 0);
-        if (!configExisted_ || widescreenChanged_)
+        if (!configExisted_ || widescreenChanged_ || modeChanged_)
             config_.setInt(kSection, "WidescreenUI", IsDlgButtonChecked(window_, IDC_WIDESCREEN) == BST_CHECKED ? 1 : 0);
         std::string error;
         if (!config_.save(configPath_, error)) {
@@ -619,14 +540,6 @@ private:
     }
 
     INT_PTR command(int id, int notification) {
-        if (notification == STN_CLICKED) {
-            const wchar_t* destination = nullptr;
-            if (id == IDC_LINK_SUPPORT) destination = L"https://www.overtake.gg/forums/rfactor.10/";
-            if (id == IDC_LINK_DIRECTX) destination = L"https://www.microsoft.com/en-us/download/details.aspx?id=35";
-            if (id == IDC_LINK_AMD) destination = L"https://www.amd.com/en/support";
-            if (id == IDC_LINK_NVIDIA) destination = L"https://www.nvidia.com/en-us/drivers/";
-            if (destination) { ShellExecuteW(window_, L"open", destination, nullptr, nullptr, SW_SHOWNORMAL); return TRUE; }
-        }
         if (notification == CBN_SELCHANGE) {
             switch (id) {
                 case IDC_DRIVER:
@@ -638,6 +551,7 @@ private:
                     modeChanged_ = refreshChanged_ = fsaaChanged_ = true;
                     fillRefresh(false);
                     fillAA(false);
+                    updateOptionalControls();
                     return TRUE;
                 case IDC_SHADER: shaderChanged_ = true; return TRUE;
                 case IDC_REFRESH: refreshChanged_ = true; return TRUE;
@@ -652,11 +566,10 @@ private:
                 case IDC_WINDOWED:
                     windowedChanged_ = fsaaChanged_ = true;
                     fillAA(true);
+                    updateOptionalControls();
                     return TRUE;
                 case IDC_WIDESCREEN: widescreenChanged_ = true; return TRUE;
                 case IDC_MULTIVIEW: multiviewChanged_ = true; return TRUE;
-                case IDC_TEST: videoTest(); return TRUE;
-                case IDC_SEND: sendStats(); return TRUE;
                 case IDOK: if (saveSettings()) EndDialog(window_, IDOK); return TRUE;
                 case IDCANCEL: EndDialog(window_, IDCANCEL); return TRUE;
                 default: break;
@@ -672,16 +585,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int) {
     controls.dwSize = sizeof(controls);
     controls.dwICC = ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&controls);
-    int argc = 0;
-    wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    fs::path root = exeDirectory();
-    std::wstring configPath = selectedPath(argc, argv, root);
-    bool debug = false;
-    for (int i = 1; i < argc; ++i) {
-        std::wstring option = lower(argv[i]);
-        if (option == L"-debug" || option == L"--debug") debug = true;
-    }
-    if (argv) LocalFree(argv);
-    ConfigWindow app(instance, configPath, root, debug);
+    const fs::path root = exeDirectory();
+    ConfigWindow app(instance, (root / L"Config.ini").wstring(), root);
     return app.run();
 }
