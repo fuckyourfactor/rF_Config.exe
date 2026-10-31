@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure x86 Release
-        run: cmake -S . -B build -A Win32 -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -A Win32
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Configure crash diagnostics

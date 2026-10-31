@@ -1,5 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
 #include <windows.h>
 #include <commctrl.h>
 #include <shellapi.h>
@@ -15,6 +13,7 @@
 #include <filesystem>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -131,9 +130,11 @@ int screenDepth(D3DFORMAT format) {
 }
 
 std::pair<UINT, UINT> sizeSetting(const ConfigFile& config, const char* key, UINT defWidth, UINT defHeight) {
-    std::string value = config.get(kSection, key);
+    std::istringstream input(config.get(kSection, key));
+    char opening = 0, comma = 0, closing = 0;
     unsigned width = 0, height = 0;
-    if (std::sscanf(value.c_str(), " ( %u , %u ) ", &width, &height) == 2 && width > 0 && height > 0)
+    if (input >> opening >> width >> comma >> height >> closing &&
+        opening == '(' && comma == ',' && closing == ')' && width > 0 && height > 0)
         return {width, height};
     return {defWidth, defHeight};
 }
@@ -535,7 +536,7 @@ private:
                     L"Error", MB_OK | MB_ICONERROR);
     }
 
-    static INT_PTR CALLBACK debugDialogProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    static INT_PTR CALLBACK debugDialogProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM) {
         if (msg == WM_INITDIALOG) {
             static const wchar_t* errors[] = {
                 L"Wrong DirectX", L"gMotor Wont Start", L"No DirectX Adapter",
