@@ -1,0 +1,40 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure x86 Release
+        run: cmake -S . -B build -A Win32 -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item 'build\Release\rF Config.exe' 'dist\rF Config.exe'
+          Compress-Archive -Path 'dist\rF Config.exe' -DestinationPath 'rF-Config-Windows-x86.zip' -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rf-config-windows-x86
+          path: rF-Config-Windows-x86.zip
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create '${{ github.ref_name }}' 'rF-Config-Windows-x86.zip' --generate-notes
